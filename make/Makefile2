@@ -1,0 +1,29 @@
+#PRG=gcc0.exe
+
+OSTYPE := $(shell uname)
+ifeq ($(OSTYPE),Linux)
+CYGWIN=
+else
+CYGWIN=-Wl,--enable-auto-import
+endif
+
+GCC=g++
+GCCFLAGS=-O2 -Wall -Wextra -std=c++11 -pedantic -Wold-style-cast -Woverloaded-virtual -Wsign-promo  -Wctor-dtor-privacy -Wnon-virtual-dtor -Wreorder
+DEFINE=
+
+VALGRIND_OPTIONS=-q --leak-check=full
+DIFF_OPTIONS=-y --strip-trailing-cr --suppress-common-lines
+
+OBJECTS0=gol.cpp
+DRIVER0=driver.cpp
+
+gcc0:
+	g++  $(DRIVER0) $(OBJECTS0) $(GCCFLAGS) $(DEFINE) -lpthread -o $(PRG)
+0 1 2 3 4 5 6:
+	watchdog 400 ./$(PRG) $@ >studentout$@
+	diff out$@ studentout$@ $(DIFFLAGS) > difference$@
+7:
+	watchdog 5000 ./$(PRG) $@ >studentout$@
+	diff out$@ studentout$@ $(DIFFLAGS) > difference$@
+clean:
+	rm -f *.exe *.o *.obj

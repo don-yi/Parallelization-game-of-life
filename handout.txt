@@ -1,0 +1,71 @@
+Implement Game of Life on NxN using N^2 threads - one per cell. 
+All N^2 threads should be created in the beginning of the simulation 
+and deleted in the end - i.e. do not delete/create threads between 
+iterations. 
+
+Use pre-C++11 POSIX threads - only basic mutex and 
+semaphore functionality (i.e. do NOT use built-in barriers):
+DO NOT USE barriers: pthread_barrier_init etc.
+
+
+Read initial position from file:
+
+File format:
+first two integers are dimensions (X,Y)
+each next pair of integers from range [0,X-1]x[0,Y-1] in order (x,y)
+file "in0":
+5 5   <--- dimensions
+1 2   <--- cell 1
+2 2   <--- cell 2
+3 2   <--- cell 3
+defines 5x5 envirionment with 3 live cells in the same row (same y-coordinate)
++-----+---> x
+|     |
+|     |
+| *** |
+|     |
+|     |
++-----+
+|
+V y
+
+ALGORITHM:
+you are NOT allowed to use a second array. (I'll check that manually).
+Therefore each thread runs in 2 steps:
+- read data from neighbors
+- calculate the next state
+- wait all threads to finish their calculations
+- write the state back to array
+- wait all threads to finish their writes
+- goto 1st line
+
+GOL rules (cp[ied from WikiPedia):
+The universe of the Game of Life is an infinite, two-dimensional orthogonal
+grid of square cells, each of which is in one of two possible states, alive
+or dead, (or populated and unpopulated, respectively). Every cell interacts
+with its eight neighbours, which are the cells that are horizontally,
+vertically, or diagonally adjacent. At each step in time, the following
+transitions occur:
+
+1) Any live cell with fewer than two live neighbours dies, as if by underpopulation.
+2) Any live cell with two or three live neighbours lives on to the next generation.
+3) Any live cell with more than three live neighbours dies, as if by overpopulation.
+4) Any dead cell with exactly three live neighbours becomes a live cell, as if by reproduction.
+
+These rules, which compare the behavior of the automaton to real life, can be condensed into the following:
+
+1) Any live cell with two or three neighbors survives.
+2) Any dead cell with three live neighbors becomes a live cell.
+3) All other live cells die in the next generation. Similarly, all other dead cells stay dead.
+
+Pseado code:
+if ( old state == dead ) { 
+    if ( count == 3 )               { new_state = alive; }
+} else {
+    if ( count < 2 or count > 3 )   { new_state = dead; }
+}
+
+Notes:
+cells in the corners of the grid have only 3 neighbors
+cells on the boundary, but not in the corner have only 5 neighbors
+all other cells have exactly 8 neighbors
