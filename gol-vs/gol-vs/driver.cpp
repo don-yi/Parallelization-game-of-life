@@ -140,26 +140,29 @@ void (*pTests[])() = {
 
 int main( int argc, char ** argv ) 
 {
-    if ( argc == 2 ) { // single argument - assume test number provided
-		int test = 0;
-		std::sscanf(argv[1],"%i",&test);
-		try {
-            pTests[test]();
-		} catch( const char* msg) {
-			std::cerr << msg << std::endl;
-		}
-        return 0;
-    }
+  //  if ( argc == 2 ) { // single argument - assume test number provided
+		//int test = 0;
+		//std::sscanf(argv[1],"%i",&test);
+		//try {
+  //          pTests[test]();
+		//} catch( const char* msg) {
+		//	std::cerr << msg << std::endl;
+		//}
+  //      return 0;
+  //  }
 
-    // else try to read 2 arguments - initial population file and number of iterations
-    if ( argc != 3 ) {
-        std::cout << "expected 2 parameters 1) init population file to read 2) number  iterations" << std::endl;
-        return 1;
-    }
-        
-    int num_iter = 0;
-    std::sscanf(argv[2],"%i",&num_iter);
+  //  // else try to read 2 arguments - initial population file and number of iterations
+  //  if ( argc != 3 ) {
+  //      std::cout << "expected 2 parameters 1) init population file to read 2) number  iterations" << std::endl;
+  //      return 1;
+  //  }
+  //      
+  //  int num_iter = 0;
+  //  std::sscanf(argv[2],"%i",&num_iter);
 
-    test( argv[1], num_iter );
-        return 0;
+  //  test( argv[1], num_iter );
+  //      return 0;
+
+  test0();
+  return 0;
 }
