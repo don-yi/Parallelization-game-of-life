@@ -4,14 +4,16 @@
 #include <vector>
 #include "gol.h"
 
-using Row   = std::vector<int>;
-using Cells = std::vector<Row>;
+#include <iostream>
+
+using Col   = std::vector<int>;
+using Cells = std::vector<Col>;
 
 // thr arg struct
 struct args {
   int numIter = -1, row = -1, col = -1;
-  args(int numIter, int x, int y)
-  : numIter(numIter), row(x), col(y) {}
+  args(int numIter, int row, int col)
+  : numIter(numIter), row(row), col(col) {}
 };
 
 // init
@@ -39,30 +41,26 @@ std::vector<std::tuple<int, int>> run(
     std::vector<pthread_t>(max_x, pthread_t()));
 
   // create thr
-  for (int x = 0; x < max_x; ++x) {
-    for (int y = 0; y < max_y; ++y) {
-      args thrArgs(num_iter, x, y); // arg init
-      pthread_create(&thrs.at(x).at(y), nullptr, ThrFn, &thrArgs);
-    }
+  for (int row = 0; row < max_y; ++row) for (int col = 0; col < max_x; ++col) {
+    args thrArgs(num_iter, row, col); // arg init
+    //std::cout << "creating thr[" << row << "][" << col << "]" << std::endl;
+    pthread_create(&thrs[row][col], nullptr, ThrFn, &thrArgs);
   }
 
   // join thr
-  for (int x = 0; x < max_x; ++x) for (int y = 0; y < max_y; ++y)
-    pthread_join(thrs.at(x).at(y), nullptr);
+  for (int row = 0; row < max_y; ++row) for (int col = 0; col < max_x; ++col)
+    pthread_join(thrs[row][col], nullptr);
 
   return map2pop();
 }
 
 Cells InitMap(
   std::vector<std::tuple<int, int>>& initial_population, int maxX, int maxY) {
-  Cells res(maxX, Row(maxY));
-  // init map w/ 0
-  for (int x = 0; x < maxX; ++x) for (int y = 0; y < maxY; ++y)
-    res[x][y] = 0;
+  Cells res(maxY, Col(maxX, 0));
   // up live cells
   for (std::tuple<int, int> livePos : initial_population) {
-    int x, y; std::tie(x, y) = livePos;
-    res[x][y] = 1;
+    int row, col; std::tie(col, row) = livePos; // y -> row & x -> col
+    res[row][col] = 1;
   }
   return res;
 }
@@ -101,17 +99,18 @@ void* ThrFn(void* passedArg) {
 
     // read data from neighbors and calc nxt state
     int neighCt = GetNeighCt(row, col);
+    //std::cout << "thr[" << row << "][" << col << "].neighCt = " << neighCt << std::endl;
 
     // wait all threads to finish their calculations
     pthread_mutex_lock(&lock1);    // acquire lock
     if (++ct == numThr) {
       ct = 0;
       pthread_cond_broadcast(&cond1);
-    } else pthread_cond_wait(&cond1, &lock1);
+    } else while (ct) pthread_cond_wait(&cond1, &lock1);
     pthread_mutex_unlock(&lock1);  // release lock
 
     pthread_mutex_lock(&lock2);    // acquire lock
-    if (ct++ == numThr) {
+    if (++ct== numThr) {
       ct = 0;
       pthread_cond_broadcast(&cond2);
     } else {
@@ -127,10 +126,10 @@ void* ThrFn(void* passedArg) {
 
 std::vector<std::tuple<int, int>>& map2pop() {
   std::vector<std::tuple<int, int>> res;
-  for (int x = 0; x < board.size(); ++x) {
-    for (int y = 0; y < board[0].size(); ++y) {
-      if (!board[x][y]) continue;
-      res.push_back(std::make_tuple(x, y));
+  for (int row = 0; row < board.size(); ++row) {
+    for (int col = 0; col < board[0].size(); ++col) {
+      if (!board[row][col]) continue;
+      res.push_back(std::make_tuple(col, row));
     }
   }
   return res;
