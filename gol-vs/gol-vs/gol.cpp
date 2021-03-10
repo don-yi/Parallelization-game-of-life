@@ -5,16 +5,15 @@
 #include <semaphore.h>
 #include "gol.h"
 
-//#include <iostream>
-
 using Col   = std::vector<int>;
 using Cells = std::vector<Col>;
 
 // thr arg struct
-struct args {
+struct thrData {
+  pthread_t thr;
   int numIter = -1, row = -1, col = -1;
-  args(int numIter, int row, int col)
-  : numIter(numIter), row(row), col(col) {}
+  //thrData(int numIter, int row, int col)
+  //: numIter(numIter), row(row), col(col) {}
 };
 
 // init
@@ -27,7 +26,7 @@ Cells board;
 Cells InitMap(
   std::vector<std::tuple<int, int>>& initial_population, int maxX, int maxY);
 void* ThrFn(void* args);
-std::vector<std::tuple<int, int>>& map2pop();
+std::vector<std::tuple<int, int>> map2pop();
 
 // Returns vector of coordinates of the alive cells of the final population.
 std::vector<std::tuple<int, int>> run(
@@ -40,19 +39,20 @@ std::vector<std::tuple<int, int>> run(
   pthread_mutex_init(&mtx1, nullptr);
   pthread_mutex_init(&mtx2, nullptr);
   board = InitMap(initial_population, max_x, max_y);
-  std::vector<std::vector<pthread_t>> thrs(max_y,
-    std::vector<pthread_t>(max_x, pthread_t()));
+  std::vector<std::vector<thrData>> thrs(
+    max_y, std::vector<thrData>(max_x));
 
   // create thr
   for (int row = 0; row < max_y; ++row) for (int col = 0; col < max_x; ++col) {
-    args thrArgs(num_iter, row, col); // arg init
-    //std::cout << "creating thr[" << row << "][" << col << "]" << std::endl;
-    pthread_create(&thrs[row][col], nullptr, ThrFn, &thrArgs);
+    thrs[row][col].numIter = num_iter;
+    thrs[row][col].row = row;
+    thrs[row][col].col = col;
+    pthread_create(&thrs[row][col].thr, nullptr, ThrFn, &thrs[row][col]);
   }
 
   // join thr
   for (int row = 0; row < max_y; ++row) for (int col = 0; col < max_x; ++col)
-    pthread_join(thrs[row][col], nullptr);
+    pthread_join(thrs[row][col].thr, nullptr);
 
   // clean up sem's & mtx's
   sem_destroy(&sem1); sem_destroy(&sem2);
@@ -98,15 +98,14 @@ int tick(int row, int col, int count) {
 
 void* ThrFn(void* passedArg) {
   // parse args
-  args* argPtr = static_cast<args*>(passedArg);
+  thrData arg = *static_cast<thrData*>(passedArg);
   int const numThr = board.size() * board[0].size(),
-  row = argPtr->row, col = argPtr->col;
+  row = arg.row, col = arg.col;
 
-  while (argPtr->numIter-- > 0) { // for num iter
+  while (arg.numIter-- > 0) { // for num iter
 
     pthread_mutex_lock(&mtx1);
-    ct = ct + 1;
-    if (ct == numThr) {
+    if (++ct == numThr) {
       sem_wait(&sem2);
       sem_post(&sem1);
     }
@@ -116,12 +115,10 @@ void* ThrFn(void* passedArg) {
 
     // read data from neighbors and calc nxt state
     int neighCt = GetNeighCt(row, col);
-    //std::cout << "thr[" << row << "][" << col << "].neighCt = " << neighCt << std::endl;
 
     // wait all threads to finish their calculations
     pthread_mutex_lock(&mtx1);
-    ct = ct - 1;
-    if (!ct) {
+    if (!--ct) {
       sem_wait(&sem1);
       sem_post(&sem2);
     }
@@ -139,7 +136,7 @@ void* ThrFn(void* passedArg) {
   return nullptr;
 }
 
-std::vector<std::tuple<int, int>>& map2pop() {
+std::vector<std::tuple<int, int>> map2pop() {
   std::vector<std::tuple<int, int>> res;
   for (int row = 0; row < board.size(); ++row) {
     for (int col = 0; col < board[0].size(); ++col) {
