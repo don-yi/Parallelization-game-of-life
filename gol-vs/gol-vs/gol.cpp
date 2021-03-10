@@ -2,9 +2,10 @@
 
 #include <pthread.h>
 #include <vector>
+#include <semaphore.h>
 #include "gol.h"
 
-#include <iostream>
+//#include <iostream>
 
 using Col   = std::vector<int>;
 using Cells = std::vector<Col>;
@@ -17,11 +18,9 @@ struct args {
 };
 
 // init
-pthread_cond_t cond1 = PTHREAD_COND_INITIALIZER;
-pthread_cond_t cond2 = PTHREAD_COND_INITIALIZER;
-pthread_mutex_t lock1 = PTHREAD_MUTEX_INITIALIZER
-, lock2 = PTHREAD_MUTEX_INITIALIZER;
-int ct = 0;
+sem_t sem1, sem2;
+pthread_mutex_t mtx1, mtx2;
+int ct;
 Cells board;
 
 // fwd decl
@@ -36,6 +35,10 @@ std::vector<std::tuple<int, int>> run(
   int num_iter, int max_x, int max_y) {
 
   // init
+  sem_init(&sem1, 0, 0);
+  sem_init(&sem2, 0, 1);
+  pthread_mutex_init(&mtx1, nullptr);
+  pthread_mutex_init(&mtx2, nullptr);
   board = InitMap(initial_population, max_x, max_y);
   std::vector<std::vector<pthread_t>> thrs(max_y,
     std::vector<pthread_t>(max_x, pthread_t()));
@@ -50,6 +53,10 @@ std::vector<std::tuple<int, int>> run(
   // join thr
   for (int row = 0; row < max_y; ++row) for (int col = 0; col < max_x; ++col)
     pthread_join(thrs[row][col], nullptr);
+
+  // clean up sem's & mtx's
+  sem_destroy(&sem1); sem_destroy(&sem2);
+  pthread_mutex_destroy(&mtx1); pthread_mutex_destroy(&mtx2);
 
   return map2pop();
 }
@@ -97,28 +104,36 @@ void* ThrFn(void* passedArg) {
 
   while (argPtr->numIter-- > 0) { // for num iter
 
+    pthread_mutex_lock(&mtx1);
+    ct = ct + 1;
+    if (ct == numThr) {
+      sem_wait(&sem2);
+      sem_post(&sem1);
+    }
+    pthread_mutex_unlock(&mtx1);
+    sem_wait(&sem1);
+    sem_post(&sem1);
+
     // read data from neighbors and calc nxt state
     int neighCt = GetNeighCt(row, col);
     //std::cout << "thr[" << row << "][" << col << "].neighCt = " << neighCt << std::endl;
 
     // wait all threads to finish their calculations
-    pthread_mutex_lock(&lock1);    // acquire lock
-    if (++ct == numThr) {
-      ct = 0;
-      pthread_cond_broadcast(&cond1);
-    } else while (ct) pthread_cond_wait(&cond1, &lock1);
-    pthread_mutex_unlock(&lock1);  // release lock
-
-    pthread_mutex_lock(&lock2);    // acquire lock
-    if (++ct== numThr) {
-      ct = 0;
-      pthread_cond_broadcast(&cond2);
-    } else {
-      board[row][col] = tick(row, col, neighCt); // write the state back to array
-      // wait all threads to finish their writes
-      pthread_cond_wait(&cond2, &lock2);
+    pthread_mutex_lock(&mtx1);
+    ct = ct - 1;
+    if (!ct) {
+      sem_wait(&sem1);
+      sem_post(&sem2);
     }
-    pthread_mutex_unlock(&lock2);  // release lock
+    pthread_mutex_unlock(&mtx1);
+    sem_wait(&sem2);
+    sem_post(&sem2);
+
+    // wait all threads to finish their writes
+    pthread_mutex_lock(&mtx2);
+    // write the state back to array
+    board[row][col] = tick(row, col, neighCt); 
+    pthread_mutex_unlock(&mtx2);
   }
 
   return nullptr;
