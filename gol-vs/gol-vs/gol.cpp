@@ -138,8 +138,8 @@ void* ThrFn(void* passedArg) {
 
 std::vector<std::tuple<int, int>> map2pop() {
   std::vector<std::tuple<int, int>> res;
-  for (int row = 0; row < board.size(); ++row) {
-    for (int col = 0; col < board[0].size(); ++col) {
+  for (Cells::size_type row = 0; row < board.size(); ++row) {
+    for (Col::size_type col = 0; col < board[0].size(); ++col) {
       if (!board[row][col]) continue;
       res.push_back(std::make_tuple(col, row));
     }
